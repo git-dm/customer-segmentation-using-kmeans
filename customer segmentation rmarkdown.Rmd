@@ -1,0 +1,234 @@
+---
+title: "Final Project"
+author: "Gitanjali Mule"
+date: "12/2/2021"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(cluster)
+library(gower)
+library(Rtsne)
+library(stringr)
+library(corrgram)
+library(plotly)
+```
+
+
+```{r}
+data = read.table("D:/Fall 2021/DA Application/project/marketing_campaign.csv", sep = "\t", header = TRUE)
+df = data.frame(data)
+head(df)
+```
+
+```{r}
+sum(is.na(df))
+```
+
+```{r}
+df = na.omit(df)
+```
+
+```{r}
+str(df)
+```
+
+```{r}
+df$Age = 2021 - df$Year_Birth
+```
+
+```{r}
+df$Education[df$Education == "2n Cycle"] = "UG"
+df$Education[df$Education == "Basic"] = "UG"
+df$Education[df$Education == "Graduation"] = "PG"
+df$Education[df$Education == "Master"] = "PG"
+df$Education[df$Education == "PhD"] = "PG"
+```
+
+```{r}
+df$Marital_Status[df$Marital_Status == "Divorced"] = "Single"
+df$Marital_Status[df$Marital_Status == "Absurd"] = "Single"
+df$Marital_Status[df$Marital_Status == "YOLO"] = "Single"
+df$Marital_Status[df$Marital_Status == "Widow"] = "Single"
+df$Marital_Status[df$Marital_Status == "Together"] = "Couple"
+df$Marital_Status[df$Marital_Status == "Married"] = "Couple"
+df$Marital_Status[df$Marital_Status == "Alone"] = "Single"
+```
+
+```{r}
+df$Customer_year <- str_sub(df$Dt_Customer, -4)
+df$Customer_year <- as.numeric(df$Customer_year)
+df$Customer_Seniority <- 2021 - df$Customer_year
+```
+
+```{r}
+df$Child <- df$Kidhome + df$Teenhome
+```
+
+```{r}
+df$Amt_Spent <- df$MntWines + df$MntFishProducts + df$MntFruits + df$MntGoldProds + df$MntMeatProducts + df$MntSweetProducts
+```
+
+```{r}
+df$Num_Purchases_made <- df$NumWebPurchases +df$NumCatalogPurchases + df$NumStorePurchases
+```
+
+```{r}
+df <- df[c(30, 3, 4, 5, 33, 32, 9, 34, 35, 16, 20)]
+```
+
+```{r}
+corrgram(df, order=TRUE, lower.panel=panel.ellipse, upper.panel=panel.pts, text.panel=panel.txt, diag.panel=panel.minmax, main="Correlaton between various variables ") 
+
+```
+```{r}
+data2 <- df
+data2$Education <- unclass(as.factor(data2$Education))
+data2$Marital_Status <- unclass(as.factor(data2$Marital_Status))
+data2$Education <- as.numeric(data2$Education)
+data2$Marital_Status <- as.numeric(data2$Marital_Status)
+corrgram(data2[-c(1)], order = TRUE, lower.panel = panel.shade,
+    upper.panel = NULL, text.panel = panel.txt, main = "Customer Data")
+```
+```{r}
+plot(df)
+```
+
+```{r}
+
+```
+```{r}
+age_plot <- ggplot(data = df, aes(Age))
+age_plot + geom_density()
+```
+```{r}
+edu_plot1 <- ggplot(data = df, aes(Education))
+edu_plot1 + geom_histogram(stat = "count")
+```
+```{r}
+eduplot = ggplot(df, aes(x=Education,y=Income,fill=Education))+ylim(0,180000)+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2, notch=T)
+eduplot
+```
+
+```{r}
+edu_plot2 <- ggplot(data = df, aes(Income, fill = Education))
+edu_plot2 + geom_histogram()
+```
+```{r}
+df = subset(df,df$Income<666665)
+```
+
+```{r}
+library(caret)
+
+dmy <- dummyVars(" ~ .", data = df, fullRank = T)
+dat_transformed <- data.frame(predict(dmy, newdata = df))
+
+glimpse(dat_transformed)
+```
+
+```{r}
+dfc = dat_transformed[-c(4)]
+```
+
+```{r}
+str(dfc)
+```
+
+```{r}
+library(factoextra)
+
+fviz_nbclust(dfc,kmeans,method="wss")+geom_vline(xintercept=3,linetype=2)
+```
+
+```{r}
+set.seed(123)
+
+km.res<- kmeans(dfc,3,nstart=10)
+```
+
+```{r}
+print(km.res$centers)
+```
+
+```{r}
+print(km.res$size)
+```
+```{r}
+print(km.res$betweenss/km.res$totss)
+```
+
+```{r}
+print(km.res$totss)
+```
+
+```{r}
+print(km.res$betweenss)
+```
+
+```{r}
+print(km.res$withinss)
+```
+
+
+```{r}
+```
+
+
+```{r}
+fviz_cluster(km.res, dfc, geom = "point",ellipse.type = "norm",repel = TRUE)
+```
+```{r}
+plot_ly(x = dfc$Income , 
+        y = dfc$Amt_Spent, 
+        z = dfc$Num_Purchases_made, 
+        type = "scatter3d", 
+        mode = "markers", 
+        color = as.factor(km.res$cluster)) 
+```
+
+```{r}
+dfc['cluster']=as.factor(km.res$cluster)
+```
+```{r}
+ggplot(dfc) + 
+  geom_point(aes(Income, Amt_Spent, color = factor(cluster)))
+```
+
+```{r}
+spentplot = ggplot(dfc, aes(x=cluster,y=Amt_Spent,fill=cluster))+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2, notch=T)
+spentplot
+```
+```{r}
+ggplot(dfc) + 
+  geom_bar(aes(cluster, fill = factor(Child))) + 
+  labs(fill = "children")
+```
+
+```{r}
+spentplot = ggplot(dfc, aes(x=cluster,y=Age,fill=cluster))+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2, notch=T)
+spentplot
+```
+```{r}
+numdealplot = ggplot(dfc, aes(x=cluster,y=NumDealsPurchases,fill=cluster))+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2)
+numdealplot
+```
+```{r}
+dfc$Income = df$Income
+```
+
+
+```{r}
+incomeplot = ggplot(dfc, aes(x=cluster,y=Income,fill=cluster))+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2, notch=T)
+incomeplot
+```
+```{r}
+numdealplot = ggplot(dfc, aes(x=cluster,y=Customer_Seniority,fill=cluster))+geom_boxplot(outlier.colour="black", outlier.shape=16,outlier.size=2)
+numdealplot
+```
+
